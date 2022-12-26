@@ -58,3 +58,4 @@ def classify_image(image: str = "images.jpg"):
     if os.path.exists("images/image.jpg.ppm"):
         os.remove("images/image.jpg.ppm")
     return classification
+
