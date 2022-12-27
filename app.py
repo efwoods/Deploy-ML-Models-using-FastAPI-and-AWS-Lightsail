@@ -14,11 +14,14 @@ from pdf2image.exceptions import (
 from utils import classify_image, classify_pdf
 
 import json, random, requests
+from dotenv import dotenv_values
 
 app = FastAPI(
     title="Document Classifier API",
     description="""An API for classifying documents into different categories""",
 )
+
+config = dotenv_values('./config/.env')
 
 client_id = config["CLIENT_ID"]
 client_secret = config["CLIENT_SECRET"]
