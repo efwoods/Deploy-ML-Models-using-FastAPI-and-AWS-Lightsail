@@ -20,6 +20,26 @@ app = FastAPI(
     description="""An API for classifying documents into different categories""",
 )
 
+client_id = config["CLIENT_ID"]
+client_secret = config["CLIENT_SECRET"]
+auth_url = "https://twitter.com/i/oauth2/authorize"
+token_url = "https://api.twitter.com/2/oauth2/token"
+redirect_uri = config["REDIRECT_URI"]
+
+# Now we can set the permissions you need for your bot by defining scopes. You can use the authentication mapping guide to determine what scopes you need based on your endpoints. 
+scopes = ["tweet.read", "users.read", "tweet.write", "offline.access"]
+
+# Since Twitter’s implementation of OAuth 2.0 is PKCE-compliant, you will need to set a code verifier. This is a secure random string. This code verifier is also used to create the code challenge.
+code_verifier = base64.urlsafe_b64encode(os.urandom(30)).decode("utf-8")
+code_verifier = re.sub("[^a-zA-Z0-9]+", "", code_verifier)
+
+# In addition to a code verifier, you will also need to pass a code challenge. The code challenge is a base64 encoded string of the SHA256 hash of the code verifier.
+code_challenge = hashlib.sha256(code_verifier.encode("utf-8")).digest()
+code_challenge = base64.urlsafe_b64encode(code_challenge).decode("utf-8")
+code_challenge = code_challenge.replace("=", "")
+
+def make_token():
+    return OAuth2Session(client_id, redirect_uri=redirect_uri, scope=scopes)
 
 
 @app.get("/", response_class=PlainTextResponse, tags=["home"])
@@ -29,6 +49,13 @@ async def home():
     An API classifying documents into different categories
     Note: add "/redoc" to get the complete documentation.
     """
+    global twitter
+    twitter = make_token()
+    authorization_url, state = twitter.authorization_url(
+        auth_url, code_challenge=code_challenge, code_challenge_method="S256"
+    )
+    session["oauth_state"] = state
+    return redirect(authorization_url)
     return note
 
 
@@ -68,6 +95,15 @@ async def home():
     """
     return note
 
+@app.get("/tweets", response_class=PlainTextResponse, tags=["tweets"])
+async def tweets():
+    url = "https://api.twitter.com/2/users/1537504318496047106/tweets?max_results=100"
+    prev_quotes = requests.request("GET", url).json()
+    tweets = json.dumps(prev_quotes)
+    return tweets
+
+    # def get_prior_tweets():
+    
 @app.get("/quotes", response_class=PlainTextResponse, tags=["quotes"])
 async def quotes():
 # local dictionary implementation:
