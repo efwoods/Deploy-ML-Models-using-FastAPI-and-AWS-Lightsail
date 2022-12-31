@@ -5,17 +5,10 @@ import cv2
 import numpy as np
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import FileResponse, PlainTextResponse
-import pdf2image
-from pdf2image.exceptions import (
-    PDFInfoNotInstalledError,
-    PDFPageCountError,
-    PDFSyntaxError,
-)
 import base64
 import hashlib
 import pickle
 import pandas as pd
-from utils import classify_image, classify_pdf
 from flask import Flask, request, redirect, session, url_for, render_template
 
 import json, random, requests
@@ -64,37 +57,7 @@ async def home():
     )
     session["oauth_state"] = state
     return redirect(authorization_url)
-    return note
-
-
-@app.post("/document-classifier")
-async def get_document(file: UploadFile = File(...)):
-    files = await file.read()
-    # save the file
-    filename = "filename.pdf"
-    with open(filename, "wb+") as f:
-        f.write(files)
-    # open the file and return the file name
-    try:
-        data = classify_pdf("filename.pdf")
-        return data
-    except (PDFInfoNotInstalledError, PDFPageCountError, PDFSyntaxError) as e:
-        return "Unable to parse document! Please upload a valid PDF file."
-
-
-@app.post("/classify-image")
-async def get_image(file: UploadFile = File(...)):
-
-    contents = io.BytesIO(await file.read())
-    file_bytes = np.asarray(bytearray(contents.read()), dtype=np.uint8)
-    img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-    cv2.imwrite("images.jpg", img)
-    try:
-        data = classify_image("images.jpg")
-        return data
-    except ValueError as e:
-        e = "Error! Please upload a valid image type."
-        return e
+    # return note
 
 @app.get("/test", response_class=PlainTextResponse, tags=["test"])
 async def home():
@@ -133,6 +96,47 @@ async def quotes():
 #     fav_quote = requests.request("GET", url).json()
 #     quote = random.randint(0, len(fav_quote["quotes"]))
 #     return fav_quote["quotes"][quote]
+
+def preprocess(textdata):
+    processedText = []
+    
+    # Create Lemmatizer and Stemmer.
+    wordLemm = WordNetLemmatizer()
+    
+    # Defining regex patterns.
+    urlPattern        = r"((http://)[^ ]*|(https://)[^ ]*|( www\.)[^ ]*)"
+    userPattern       = '@[^\s]+'
+    alphaPattern      = "[^a-zA-Z0-9]"
+    sequencePattern   = r"(.)\1\1+"
+    seqReplacePattern = r"\1\1"
+    
+    for tweet in textdata:
+        tweet = tweet.lower()
+        
+        # Replace all URls with 'URL'
+        tweet = re.sub(urlPattern,' URL',tweet)
+        # Replace all emojis.
+        for emoji in emojis.keys():
+            tweet = tweet.replace(emoji, "EMOJI" + emojis[emoji])        
+        # Replace @USERNAME to 'USER'.
+        tweet = re.sub(userPattern,' USER', tweet)        
+        # Replace all non alphabets.
+        tweet = re.sub(alphaPattern, " ", tweet)
+        # Replace 3 or more consecutive letters by 2 letter.
+        tweet = re.sub(sequencePattern, seqReplacePattern, tweet)
+
+        tweetwords = ''
+        for word in tweet.split():
+            # Checking if the word is a stopword.
+            #if word not in stopwordlist:
+            if len(word)>1:
+                # Lemmatizing the word.
+                word = wordLemm.lemmatize(word)
+                tweetwords += (word+' ')
+            
+        processedText.append(tweetwords)
+        
+    return processedText
 
 def load_models():
     '''
