@@ -1,6 +1,6 @@
 import io
 import os
-
+import re
 import cv2
 import numpy as np
 from fastapi import FastAPI, File, UploadFile
@@ -10,9 +10,11 @@ import hashlib
 import pickle
 import pandas as pd
 from flask import Flask, request, redirect, session, url_for, render_template
-
+from requests_oauthlib import OAuth2Session, TokenUpdated
 import json, random, requests
-from dotenv import dotenv_values
+from dotenv import dotenv_values 
+# import authlib 
+
 
 app = FastAPI(
     title="Document Classifier API",
@@ -39,11 +41,17 @@ code_challenge = hashlib.sha256(code_verifier.encode("utf-8")).digest()
 code_challenge = base64.urlsafe_b64encode(code_challenge).decode("utf-8")
 code_challenge = code_challenge.replace("=", "")
 
+
+
+from starlette.config import Config
+
+config = Config('./config/.env')  # read config from .env file
+oauth = OAuth(config)
 def make_token():
     return OAuth2Session(client_id, redirect_uri=redirect_uri, scope=scopes)
 
 
-@app.get("/", response_class=PlainTextResponse, tags=["home"])
+@app.get("/home", response_class=PlainTextResponse, tags=["home"])
 async def home():
     note = """
     Document Classifier API 📚
